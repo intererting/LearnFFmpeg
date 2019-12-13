@@ -28,6 +28,7 @@
  */
 
 #define _XOPEN_SOURCE 600 /* for usleep */
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,8 +52,7 @@ AVFilterGraph *filter_graph;
 static int video_stream_index = -1;
 static int64_t last_pts = AV_NOPTS_VALUE;
 
-static int open_input_file(const char *filename)
-{
+static int open_input_file(const char *filename) {
     int ret;
     AVCodec *dec;
 
@@ -89,16 +89,15 @@ static int open_input_file(const char *filename)
     return 0;
 }
 
-static int init_filters(const char *filters_descr)
-{
+static int init_filters(const char *filters_descr) {
     char args[512];
     int ret = 0;
-    const AVFilter *buffersrc  = avfilter_get_by_name("buffer");
+    const AVFilter *buffersrc = avfilter_get_by_name("buffer");
     const AVFilter *buffersink = avfilter_get_by_name("buffersink");
     AVFilterInOut *outputs = avfilter_inout_alloc();
-    AVFilterInOut *inputs  = avfilter_inout_alloc();
+    AVFilterInOut *inputs = avfilter_inout_alloc();
     AVRational time_base = fmt_ctx->streams[video_stream_index]->time_base;
-    enum AVPixelFormat pix_fmts[] = { AV_PIX_FMT_GRAY8, AV_PIX_FMT_NONE };
+    enum AVPixelFormat pix_fmts[] = {AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE};
 
     filter_graph = avfilter_graph_alloc();
     if (!outputs || !inputs || !filter_graph) {
@@ -108,10 +107,10 @@ static int init_filters(const char *filters_descr)
 
     /* buffer video source: the decoded frames from the decoder will be inserted here. */
     snprintf(args, sizeof(args),
-            "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
-            dec_ctx->width, dec_ctx->height, dec_ctx->pix_fmt,
-            time_base.num, time_base.den,
-            dec_ctx->sample_aspect_ratio.num, dec_ctx->sample_aspect_ratio.den);
+             "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
+             dec_ctx->width, dec_ctx->height, dec_ctx->pix_fmt,
+             time_base.num, time_base.den,
+             dec_ctx->sample_aspect_ratio.num, dec_ctx->sample_aspect_ratio.den);
 
     ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in",
                                        args, NULL, filter_graph);
@@ -146,10 +145,10 @@ static int init_filters(const char *filters_descr)
      * filter input label is not specified, it is set to "in" by
      * default.
      */
-    outputs->name       = av_strdup("in");
+    outputs->name = av_strdup("in");
     outputs->filter_ctx = buffersrc_ctx;
-    outputs->pad_idx    = 0;
-    outputs->next       = NULL;
+    outputs->pad_idx = 0;
+    outputs->next = NULL;
 
     /*
      * The buffer sink input must be connected to the output pad of
@@ -157,67 +156,70 @@ static int init_filters(const char *filters_descr)
      * filter output label is not specified, it is set to "out" by
      * default.
      */
-    inputs->name       = av_strdup("out");
+    inputs->name = av_strdup("out");
     inputs->filter_ctx = buffersink_ctx;
-    inputs->pad_idx    = 0;
-    inputs->next       = NULL;
+    inputs->pad_idx = 0;
+    inputs->next = NULL;
 
     if ((ret = avfilter_graph_parse_ptr(filter_graph, filters_descr,
-                                    &inputs, &outputs, NULL)) < 0)
+                                        &inputs, &outputs, NULL)) < 0)
         goto end;
 
     if ((ret = avfilter_graph_config(filter_graph, NULL)) < 0)
         goto end;
 
-end:
+    end:
     avfilter_inout_free(&inputs);
     avfilter_inout_free(&outputs);
 
     return ret;
 }
 
-static void display_frame(const AVFrame *frame, AVRational time_base)
-{
+static void display_frame(const AVFrame *frame_out, AVRational time_base, FILE *fp_out) {
     int x, y;
     uint8_t *p0, *p;
     int64_t delay;
 
-    if (frame->pts != AV_NOPTS_VALUE) {
-        if (last_pts != AV_NOPTS_VALUE) {
-            /* sleep roughly the right amount of time;
-             * usleep is in microseconds, just like AV_TIME_BASE. */
-            delay = av_rescale_q(frame->pts - last_pts,
-                                 time_base, AV_TIME_BASE_Q);
-            if (delay > 0 && delay < 1000000)
-                usleep(delay);
-        }
-        last_pts = frame->pts;
+    for (int i = 0; i < frame_out->height; i++) {
+        fwrite(frame_out->data[0] + frame_out->linesize[0] * i, 1, frame_out->width, fp_out);
     }
+    for (int i = 0; i < frame_out->height / 2; i++) {
+        fwrite(frame_out->data[1] + frame_out->linesize[1] * i, 1, frame_out->width / 2, fp_out);
+    }
+    for (int i = 0; i < frame_out->height / 2; i++) {
+        fwrite(frame_out->data[2] + frame_out->linesize[2] * i, 1, frame_out->width / 2, fp_out);
+    }
+
+//    if (frame->pts != AV_NOPTS_VALUE) {
+//        if (last_pts != AV_NOPTS_VALUE) {
+//            /* sleep roughly the right amount of time;
+//             * usleep is in microseconds, just like AV_TIME_BASE. */
+//            delay = av_rescale_q(frame->pts - last_pts,
+//                                 time_base, AV_TIME_BASE_Q);
+//            if (delay > 0 && delay < 1000000)
+//                usleep(delay);
+//        }
+//        last_pts = frame->pts;
+//    }
 
     /* Trivial ASCII grayscale display. */
-    p0 = frame->data[0];
-    puts("\033c");
-    for (y = 0; y < frame->height; y++) {
-        p = p0;
-        for (x = 0; x < frame->width; x++)
-            putchar(" .-+#"[*(p++) / 52]);
-        putchar('\n');
-        p0 += frame->linesize[0];
-    }
-    fflush(stdout);
+//    p0 = frame->data[0];
+//    puts("\033c");
+//    for (y = 0; y < frame->height; y++) {
+//        p = p0;
+//        for (x = 0; x < frame->width; x++)
+//            putchar(" .-+#"[*(p++) / 52]);
+//        putchar('\n');
+//        p0 += frame->linesize[0];
+//    }
+//    fflush(stdout);
 }
 
-int main(int argc, char **argv)
-{
+int main() {
     int ret;
     AVPacket packet;
     AVFrame *frame;
     AVFrame *filt_frame;
-
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s file\n", argv[0]);
-        exit(1);
-    }
 
     frame = av_frame_alloc();
     filt_frame = av_frame_alloc();
@@ -226,7 +228,11 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    if ((ret = open_input_file(argv[1])) < 0)
+    const char *input_file_name = "C:\\Users\\user\\Desktop\\LearnFFmpeg\\ds.264";
+    const char *out_file_name = "C:\\Users\\user\\Desktop\\LearnFFmpeg\\filter_out.yuv";
+
+
+    if ((ret = open_input_file(input_file_name)) < 0)
         goto end;
     if ((ret = init_filters(filter_descr)) < 0)
         goto end;
@@ -242,6 +248,8 @@ int main(int argc, char **argv)
                 av_log(NULL, AV_LOG_ERROR, "Error while sending a packet to the decoder\n");
                 break;
             }
+
+            FILE *out_file = fopen(out_file_name, "wb");
 
             while (ret >= 0) {
                 ret = avcodec_receive_frame(dec_ctx, frame);
@@ -267,7 +275,7 @@ int main(int argc, char **argv)
                         break;
                     if (ret < 0)
                         goto end;
-                    display_frame(filt_frame, buffersink_ctx->inputs[0]->time_base);
+                    display_frame(filt_frame, buffersink_ctx->inputs[0]->time_base, out_file);
                     av_frame_unref(filt_frame);
                 }
                 av_frame_unref(frame);
@@ -275,7 +283,7 @@ int main(int argc, char **argv)
         }
         av_packet_unref(&packet);
     }
-end:
+    end:
     avfilter_graph_free(&filter_graph);
     avcodec_free_context(&dec_ctx);
     avformat_close_input(&fmt_ctx);
