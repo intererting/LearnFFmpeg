@@ -75,7 +75,7 @@ int main() {
     AVPacket *pkt;
     uint8_t endcode[] = {0, 0, 1, 0xb7};
 
-    const char *yuv_filename = "C:\\Users\\user\\Desktop\\LearnFFmpeg\\ds_480x272.yuv";
+    const char *yuv_filename = "C:\\Users\\user\\Desktop\\LearnFFmpeg\\filter_output.yuv";
     filename = "C:\\Users\\user\\Desktop\\LearnFFmpeg\\encode_video.264";
 
     /* find the mpeg1video encoder */
