@@ -13,7 +13,7 @@ int main() {
     AVFormatContext *pFormatCtx;
     AVOutputFormat *fmt;
     AVStream *video_st;
-    AVCodecContext *pCodecCtx = avcodec_alloc_context3(avcodec_find_encoder(AV_CODEC_ID_H265));;
+    AVCodecContext *pCodecCtx = avcodec_alloc_context3(avcodec_find_encoder(AV_CODEC_ID_H265));
     AVCodec *pCodec;
     AVPacket pkt;
     uint8_t *picture_buf;
@@ -91,10 +91,14 @@ int main() {
     pFrame = av_frame_alloc();
     picture_size = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, pCodecCtx->width, pCodecCtx->height, 1);
     picture_buf = (uint8_t *) av_malloc(picture_size);
+    //像素缓冲区
     av_image_fill_arrays(pFrame->data, pFrame->linesize, picture_buf, pCodecCtx->pix_fmt, pCodecCtx->width,
                          pCodecCtx->height, 1);
     //Write File Header
-    avformat_write_header(pFormatCtx, nullptr);
+    int headerResult = avformat_write_header(pFormatCtx, nullptr);
+    if (headerResult < 0) {
+        return -1;
+    }
     av_new_packet(&pkt, picture_size);
 
     y_size = pCodecCtx->width * pCodecCtx->height;

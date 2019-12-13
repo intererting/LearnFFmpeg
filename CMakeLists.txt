@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 include_directories(${PROJECT_SOURCE_DIR}/include/)
 
-add_executable(LearnFFmpeg main.cpp code/yuv_to_h264.cpp)
+add_executable(LearnFFmpeg code/reading_audio_file.c)
 
 target_link_libraries(
         LearnFFmpeg
