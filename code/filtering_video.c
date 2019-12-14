@@ -39,7 +39,14 @@
 #include <libavfilter/buffersrc.h>
 #include <libavutil/opt.h>
 
-const char *filter_descr = "scale=78:24,transpose=cclock";
+//lutyuv='u=128:v=128'
+//boxblur
+//        hflip
+//hue='h=60:s=-3'
+//crop=2/3*in_w:2/3*in_h
+//        drawbox=x=100:y=100:w=100:h=100:color=pink@0.5
+//drawtext=fontfile=arial.ttf:fontcolor=green:fontsize=30:text='Lei Xiaohua'
+const char *filter_descr = "drawtext=fontfile=arial.ttf:fontcolor=green:fontsize=30:text='yu li yang'";
 /* other way:
    scale=78:24 [scl]; [scl] transpose=cclock // assumes "[in]" and "[out]" to be input output pads respectively
  */
@@ -175,21 +182,11 @@ static int init_filters(const char *filters_descr) {
     return ret;
 }
 
-static void display_frame(const AVFrame *frame_out, AVRational time_base, FILE *fp_out) {
-    int x, y;
-    uint8_t *p0, *p;
-    int64_t delay;
-
-    for (int i = 0; i < frame_out->height; i++) {
-        fwrite(frame_out->data[0] + frame_out->linesize[0] * i, 1, frame_out->width, fp_out);
-    }
-    for (int i = 0; i < frame_out->height / 2; i++) {
-        fwrite(frame_out->data[1] + frame_out->linesize[1] * i, 1, frame_out->width / 2, fp_out);
-    }
-    for (int i = 0; i < frame_out->height / 2; i++) {
-        fwrite(frame_out->data[2] + frame_out->linesize[2] * i, 1, frame_out->width / 2, fp_out);
-    }
-
+static void display_frame(const AVFrame *frame, AVRational time_base, FILE *fp_yuv) {
+//    int x, y;
+//    uint8_t *p0, *p;
+//    int64_t delay;
+//
 //    if (frame->pts != AV_NOPTS_VALUE) {
 //        if (last_pts != AV_NOPTS_VALUE) {
 //            /* sleep roughly the right amount of time;
@@ -202,7 +199,19 @@ static void display_frame(const AVFrame *frame_out, AVRational time_base, FILE *
 //        last_pts = frame->pts;
 //    }
 
-    /* Trivial ASCII grayscale display. */
+    printf("%d\n", frame->width);
+    //Y, U, V
+    for (int i = 0; i < frame->height; i++) {
+        fwrite(frame->data[0] + frame->linesize[0] * i, 1, frame->width, fp_yuv);
+    }
+    for (int i = 0; i < frame->height / 2; i++) {
+        fwrite(frame->data[1] + frame->linesize[1] * i, 1, frame->width / 2, fp_yuv);
+    }
+    for (int i = 0; i < frame->height / 2; i++) {
+        fwrite(frame->data[2] + frame->linesize[2] * i, 1, frame->width / 2, fp_yuv);
+    }
+
+//    /* Trivial ASCII grayscale display. */
 //    p0 = frame->data[0];
 //    puts("\033c");
 //    for (y = 0; y < frame->height; y++) {
@@ -228,15 +237,13 @@ int main() {
         exit(1);
     }
 
-    const char *input_file_name = "C:\\Users\\user\\Desktop\\LearnFFmpeg\\ds.264";
-    const char *out_file_name = "C:\\Users\\user\\Desktop\\LearnFFmpeg\\filter_out.yuv";
+    const char *in_file = "../ds.264";
 
-
-    if ((ret = open_input_file(input_file_name)) < 0)
+    if ((ret = open_input_file(in_file)) < 0)
         goto end;
     if ((ret = init_filters(filter_descr)) < 0)
         goto end;
-
+    FILE *fp_yuv = fopen("../encode_video.yuv", "wb+");
     /* read all packets */
     while (1) {
         if ((ret = av_read_frame(fmt_ctx, &packet)) < 0)
@@ -248,8 +255,6 @@ int main() {
                 av_log(NULL, AV_LOG_ERROR, "Error while sending a packet to the decoder\n");
                 break;
             }
-
-            FILE *out_file = fopen(out_file_name, "wb");
 
             while (ret >= 0) {
                 ret = avcodec_receive_frame(dec_ctx, frame);
@@ -275,7 +280,7 @@ int main() {
                         break;
                     if (ret < 0)
                         goto end;
-                    display_frame(filt_frame, buffersink_ctx->inputs[0]->time_base, out_file);
+                    display_frame(filt_frame, buffersink_ctx->inputs[0]->time_base, fp_yuv);
                     av_frame_unref(filt_frame);
                 }
                 av_frame_unref(frame);
@@ -289,6 +294,7 @@ int main() {
     avformat_close_input(&fmt_ctx);
     av_frame_free(&frame);
     av_frame_free(&filt_frame);
+    fclose(fp_yuv);
 
     if (ret < 0 && ret != AVERROR_EOF) {
         fprintf(stderr, "Error occurred: %s\n", av_err2str(ret));
