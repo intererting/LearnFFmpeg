@@ -66,18 +66,16 @@ static void encode(AVCodecContext *enc_ctx, AVFrame *frame, AVPacket *pkt,
 }
 
 int main() {
-    const char *filename;
+
+    const char *yuv_filename = "../ds_480x272.yuv";
+    const char *filename = "../encode_video.264";
+
     const AVCodec *codec;
     AVCodecContext *c = NULL;
-    int i, ret, x, y;
+    int ret;
     FILE *f;
     AVFrame *frame;
     AVPacket *pkt;
-    uint8_t endcode[] = {0, 0, 1, 0xb7};
-
-    const char *yuv_filename = "C:\\Users\\user\\Desktop\\LearnFFmpeg\\filter_out.yuv";
-    filename = "C:\\Users\\user\\Desktop\\LearnFFmpeg\\encode_video.264";
-
     /* find the mpeg1video encoder */
     codec = avcodec_find_encoder(AV_CODEC_ID_H264);
     if (!codec) {
@@ -173,11 +171,7 @@ int main() {
 
     /* flush the encoder */
     encode(c, NULL, pkt, f);
-
-    /* add sequence end code to have a real MPEG file */
-    fwrite(endcode, 1, sizeof(endcode), f);
     fclose(f);
-
     avcodec_free_context(&c);
     av_frame_free(&frame);
     av_packet_free(&pkt);
