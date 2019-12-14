@@ -46,7 +46,26 @@
 //crop=2/3*in_w:2/3*in_h
 //        drawbox=x=100:y=100:w=100:h=100:color=pink@0.5
 //drawtext=fontfile=arial.ttf:fontcolor=green:fontsize=30:text='Lei Xiaohua'
-const char *filter_descr = "drawtext=fontfile=arial.ttf:fontcolor=green:fontsize=30:text='yu li yang'";
+//const char *filter_descr = "drawtext=fontfile=arial.ttf:fontcolor=green:fontsize=30:text='yu li yang'";
+
+
+//1.从左到右滚动播出Hello, this is drawtext function,any more questsion can concat su.gao(sugao_cn@163.com)!的内容，字体颜色为黄色，字体透明度100%，字体大小为36，字体FreeSerif。且将视频输出管道打上标签text；
+//————————————————
+//版权声明：本文为CSDN博主「smartavs」的原创文章，遵循 CC 4.0 BY-SA 版权协议，转载请附上原文出处链接及本声明。
+//原文链接：https://blog.csdn.net/weixin_35804181/article/details/54931647
+
+//将图片test.png叠加到标签为text的视频上，位置为左上角
+//const char *filter_descr = "drawtext=fontfile=mingliub.ttf:\
+//        fontsize=15: \
+//        fontcolor=green: \
+//x=0:\
+//y=100:\
+//        text='Hello, this is drawtext function' [text]; \
+//        movie=cover.jpg,scale=480:272 [wm]; \
+//        [text] [wm] overlay=0:0 [out]";
+
+const char *filter_descr = "movie=cover.jpg,scale=400:400 [wm]; \
+        [in] [wm] overlay=100:100 [out]";
 /* other way:
    scale=78:24 [scl]; [scl] transpose=cclock // assumes "[in]" and "[out]" to be input output pads respectively
  */
@@ -209,6 +228,8 @@ static void display_frame(const AVFrame *frame, AVRational time_base, FILE *fp_y
     for (int i = 0; i < frame->height / 2; i++) {
         fwrite(frame->data[2] + frame->linesize[2] * i, 1, frame->width / 2, fp_yuv);
     }
+
+    //添加水印图片
 
 //    /* Trivial ASCII grayscale display. */
 //    p0 = frame->data[0];
