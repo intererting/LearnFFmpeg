@@ -199,7 +199,6 @@ static void display_frame(const AVFrame *frame, AVRational time_base, FILE *fp_y
 //        last_pts = frame->pts;
 //    }
 
-    printf("%d\n", frame->width);
     //Y, U, V
     for (int i = 0; i < frame->height; i++) {
         fwrite(frame->data[0] + frame->linesize[0] * i, 1, frame->width, fp_yuv);
