@@ -46,7 +46,7 @@
 //crop=2/3*in_w:2/3*in_h
 //        drawbox=x=100:y=100:w=100:h=100:color=pink@0.5
 //drawtext=fontfile=arial.ttf:fontcolor=green:fontsize=30:text='Lei Xiaohua'
-//const char *filter_descr = "drawtext=fontfile=arial.ttf:fontcolor=green:fontsize=30:text='yu li yang'";
+//const char *filter_descr = "drawtext=fontfile=mingliub.ttf:fontcolor=green:fontsize=30:text='yu li yang'";
 
 
 //1.从左到右滚动播出Hello, this is drawtext function,any more questsion can concat su.gao(sugao_cn@163.com)!的内容，字体颜色为黄色，字体透明度100%，字体大小为36，字体FreeSerif。且将视频输出管道打上标签text；
@@ -55,17 +55,17 @@
 //原文链接：https://blog.csdn.net/weixin_35804181/article/details/54931647
 
 //将图片test.png叠加到标签为text的视频上，位置为左上角
-//const char *filter_descr = "drawtext=fontfile=mingliub.ttf:\
-//        fontsize=15: \
-//        fontcolor=green: \
-//x=0:\
-//y=100:\
-//        text='Hello, this is drawtext function' [text]; \
-//        movie=cover.jpg,scale=480:272 [wm]; \
-//        [text] [wm] overlay=0:0 [out]";
+const char *filter_descr = "drawtext=fontfile=mingliub.ttf:\
+        fontsize=15: \
+        fontcolor=green: \
+x=0:\
+y=100:\
+        text='Hello, this is drawtext function' [text]; \
+        movie='c\\:/Users/yuliyang/Desktop/LearnFFmpeg/cover.png',scale=128:128 [wm]; \
+        [text] [wm] overlay=0:0 [out]";
 
-const char *filter_descr = "movie=cover.jpg,scale=400:400 [wm]; \
-        [in] [wm] overlay=100:100 [out]";
+//const char *filter_descr = "movie=cover.png,scale=120:120 [wm]; \
+//      [in] [wm] overlay=0:0 [out]";
 /* other way:
    scale=78:24 [scl]; [scl] transpose=cclock // assumes "[in]" and "[out]" to be input output pads respectively
  */
@@ -77,6 +77,8 @@ AVFilterContext *buffersrc_ctx;
 AVFilterGraph *filter_graph;
 static int video_stream_index = -1;
 static int64_t last_pts = AV_NOPTS_VALUE;
+
+void save_rgb_file(AVFrame *filt_frame, FILE *out_file);
 
 static int open_input_file(const char *filename) {
     int ret;
@@ -123,7 +125,7 @@ static int init_filters(const char *filters_descr) {
     AVFilterInOut *outputs = avfilter_inout_alloc();
     AVFilterInOut *inputs = avfilter_inout_alloc();
     AVRational time_base = fmt_ctx->streams[video_stream_index]->time_base;
-    enum AVPixelFormat pix_fmts[] = {AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE};
+    enum AVPixelFormat pix_fmts[] = {AV_PIX_FMT_RGB24, AV_PIX_FMT_NONE};
 
     filter_graph = avfilter_graph_alloc();
     if (!outputs || !inputs || !filter_graph) {
@@ -264,6 +266,8 @@ int main() {
     if ((ret = init_filters(filter_descr)) < 0)
         goto end;
     FILE *fp_yuv = fopen("../encode_video.yuv", "wb+");
+    FILE *fp_rgb = fopen("../encode_video.rgb", "wb+");
+    int pts = 0;
     /* read all packets */
     while (1) {
         if ((ret = av_read_frame(fmt_ctx, &packet)) < 0)
@@ -285,7 +289,8 @@ int main() {
                     goto end;
                 }
 
-                frame->pts = frame->best_effort_timestamp;
+                frame->pts = pts;
+                pts++;
 
                 /* push the decoded frame into the filtergraph */
                 if (av_buffersrc_add_frame_flags(buffersrc_ctx, frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0) {
@@ -301,7 +306,9 @@ int main() {
                     if (ret < 0)
                         goto end;
                     display_frame(filt_frame, buffersink_ctx->inputs[0]->time_base, fp_yuv);
+                    save_rgb_file(filt_frame, fp_rgb);
                     av_frame_unref(filt_frame);
+
                 }
                 av_frame_unref(frame);
             }
@@ -322,4 +329,8 @@ int main() {
     }
 
     exit(0);
+}
+
+void save_rgb_file(AVFrame *filt_frame, FILE *out_file) {
+    fwrite(filt_frame->data[0], 1, filt_frame->width * filt_frame->height * 3, out_file);
 }
