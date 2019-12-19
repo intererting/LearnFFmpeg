@@ -32,7 +32,7 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavformat/avio.h>
-#include <libavutil/file.h>
+#include <libavutil/file.h>X
 
 struct buffer_data {
     uint8_t *ptr;
@@ -60,7 +60,7 @@ int main() {
     AVIOContext *avio_ctx = NULL;
     uint8_t *buffer = NULL, *avio_ctx_buffer = NULL;
     size_t buffer_size, avio_ctx_buffer_size = 4096;
-    char *input_filename = "C:\\Users\\user\\Desktop\\LearnFFmpeg\\ds.264";
+    char *input_filename = "../ds.264";
     int ret = 0;
     struct buffer_data bd = {0};
     /* slurp file content into buffer */

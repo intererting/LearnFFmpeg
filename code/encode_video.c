@@ -67,7 +67,7 @@ static void encode(AVCodecContext *enc_ctx, AVFrame *frame, AVPacket *pkt,
 
 int main() {
 
-    const char *yuv_filename = "../encode_video.yuv";
+    const char *yuv_filename = "../ds_480x272.yuv";
     const char *filename = "../encode_video.264";
 
     const AVCodec *codec;
