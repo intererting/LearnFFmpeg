@@ -7,7 +7,7 @@ include_directories(${PROJECT_SOURCE_DIR}/include/)
 
 #link_directories(./lib/)
 
-add_executable(LearnFFmpeg code/encode_audio.c)
+add_executable(LearnFFmpeg code/avio_reading.c)
 
 target_link_libraries(
         LearnFFmpeg
