@@ -7,7 +7,7 @@ include_directories(${PROJECT_SOURCE_DIR}/include/)
 
 #link_directories(./lib/)
 
-add_executable(LearnFFmpeg code/encode_video.c)
+add_executable(LearnFFmpeg code/encode_audio.c)
 
 target_link_libraries(
         LearnFFmpeg
@@ -19,6 +19,7 @@ target_link_libraries(
         ${PROJECT_SOURCE_DIR}/lib/libavfilter.so.7
         ${PROJECT_SOURCE_DIR}/lib/libpostproc.so.55
         ${PROJECT_SOURCE_DIR}/lib/libswscale.so.5
+        ${PROJECT_SOURCE_DIR}/lib/libfdk-aac.so.2
         ${PROJECT_SOURCE_DIR}/lib/libx264.so.157)
 #Windows
 #target_link_libraries(

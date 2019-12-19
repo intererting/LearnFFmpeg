@@ -127,10 +127,10 @@ int main() {
     uint16_t *samples;
     float t, tincr;
 
-    filename = "C:\\Users\\user\\Desktop\\LearnFFmpeg\\encode_wav.wav";
+    filename = "../encode_aac.aac";
 
     /* find the MP2 encoder */
-    codec = avcodec_find_encoder(AV_CODEC_ID_WAVPACK);
+    codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
     if (!codec) {
         fprintf(stderr, "Codec not found\n");
         exit(1);
@@ -198,7 +198,7 @@ int main() {
     /* encode a single tone sound */
     t = 0;
     tincr = 2 * M_PI * 440.0 / c->sample_rate;
-    for (i = 0; i < 200; i++) {
+    for (i = 0; i < 20000; i++) {
         /* make sure the frame is writable -- makes a copy if the encoder
          * kept a reference internally */
         ret = av_frame_make_writable(frame);
@@ -207,7 +207,7 @@ int main() {
         samples = (uint16_t *) frame->data[0];
 
         for (j = 0; j < c->frame_size; j++) {
-            samples[2 * j] = (int) (sin(t) * 10000);
+            samples[2 * j] = 5000;
 
             for (k = 1; k < c->channels; k++)
                 samples[2 * j + k] = samples[2 * j];
