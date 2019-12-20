@@ -85,8 +85,8 @@ int main() {
     AVPacket *pkt;
     AVFrame *decoded_frame = NULL;
 
-    filename = "C:\\Users\\user\\Desktop\\LearnFFmpeg\\origin.aac";
-    outfilename = "C:\\Users\\user\\Desktop\\LearnFFmpeg\\decode_result.pcm";
+    filename = "../origin.aac";
+    outfilename = "../decode_result.pcm";
 
     pkt = av_packet_alloc();
 

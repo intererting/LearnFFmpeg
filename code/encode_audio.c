@@ -36,6 +36,7 @@
 #include <libavutil/channel_layout.h>
 #include <libavutil/common.h>
 #include <libavutil/frame.h>
+#include <libavformat/avformat.h>
 #include <libavutil/samplefmt.h>
 
 /* check that a given sample format is supported by the encoder */
@@ -89,47 +90,29 @@ static int select_channel_layout(const AVCodec *codec) {
     return best_ch_layout;
 }
 
-static void encode(AVCodecContext *ctx, AVFrame *frame, AVPacket *pkt,
-                   FILE *output) {
-    int ret;
-
-    /* send the frame for encoding */
-    ret = avcodec_send_frame(ctx, frame);
-    if (ret < 0) {
-        fprintf(stderr, "Error sending the frame to the encoder\n");
-        exit(1);
-    }
-
-    /* read all the available output packets (in general there may be any
-     * number of them */
-    while (ret >= 0) {
-        ret = avcodec_receive_packet(ctx, pkt);
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-            return;
-        else if (ret < 0) {
-            fprintf(stderr, "Error encoding audio frame\n");
-            exit(1);
-        }
-
-        fwrite(pkt->data, 1, pkt->size, output);
-        av_packet_unref(pkt);
-    }
-}
-
 int main() {
-    const char *filename;
     const AVCodec *codec;
     AVCodecContext *c = NULL;
+    AVFormatContext *fmt_context;
     AVFrame *frame;
     AVPacket *pkt;
-    int i, j, k, ret;
+    AVStream *av_stream;
     FILE *f;
-    uint16_t *samples;
-    float t, tincr;
 
-    filename = "../encode_aac.aac";
+    const char *in_filename = "../origin.pcm";
+    const char *filename = "../encode_aac.aac";
 
-    /* find the MP2 encoder */
+    fmt_context = avformat_alloc_context();
+    av_stream = avformat_new_stream(fmt_context, 0);
+    if (!av_stream) {
+        return 1;
+    }
+    //Open output URL
+    if (avio_open(&fmt_context->pb, filename, AVIO_FLAG_WRITE) < 0) {
+        printf("Failed to open output file!\n");
+        return -1;
+    }
+    fmt_context->oformat = av_guess_format(NULL, filename, NULL);
     codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
     if (!codec) {
         fprintf(stderr, "Codec not found\n");
@@ -142,27 +125,35 @@ int main() {
         exit(1);
     }
 
+    c->sample_fmt = codec->sample_fmts[0];
     /* put sample parameters */
     c->bit_rate = 64000;
-
-    /* check that the encoder supports s16 pcm input */
-    c->sample_fmt = AV_SAMPLE_FMT_FLTP;
-    if (!check_sample_fmt(codec, c->sample_fmt)) {
-        fprintf(stderr, "Encoder does not support sample format %s",
-                av_get_sample_fmt_name(c->sample_fmt));
-        exit(1);
-    }
-
     /* select other audio parameters supported by the encoder */
     c->sample_rate = select_sample_rate(codec);
-    c->channel_layout = select_channel_layout(codec);
-    c->channels = av_get_channel_layout_nb_channels(c->channel_layout);
+    c->channels = 2;
+    c->channel_layout = av_get_default_channel_layout(2);
+    /* Allow the use of the experimental AAC encoder. */
+    c->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
 
+    /* Set the sample rate for the container. */
+    av_stream->time_base.den = select_sample_rate(codec);
+    av_stream->time_base.num = 1;
+
+    /* Some container formats (like MP4) require global headers to be present.
+  * Mark the encoder so that it behaves accordingly. */
+    if (fmt_context->oformat->flags & AVFMT_GLOBALHEADER)
+        c->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     /* open it */
     if (avcodec_open2(c, codec, NULL) < 0) {
         fprintf(stderr, "Could not open codec\n");
         exit(1);
     }
+
+    int error = avcodec_parameters_from_context(av_stream->codecpar, c);
+    if (error < 0) {
+        return 1;
+    }
+
 
     f = fopen(filename, "wb");
     if (!f) {
@@ -188,42 +179,51 @@ int main() {
     frame->format = c->sample_fmt;
     frame->channel_layout = c->channel_layout;
 
-    /* allocate the data buffers */
-    ret = av_frame_get_buffer(frame, 0);
-    if (ret < 0) {
-        fprintf(stderr, "Could not allocate audio data buffers\n");
-        exit(1);
+    int size = av_samples_get_buffer_size(NULL, c->channels, c->frame_size, c->sample_fmt, 1);
+    uint8_t *frame_buf = (uint8_t *) av_malloc(size);
+    avcodec_fill_audio_frame(frame, c->channels, c->sample_fmt, (const uint8_t *) frame_buf, size, 1);
+
+    FILE *in_file = fopen(in_filename, "rb");
+    int pts = 0;
+    int header_ret = avformat_write_header(fmt_context, NULL);
+    if (header_ret != 0) {
+        return 1;
     }
-
-    /* encode a single tone sound */
-    t = 0;
-    tincr = 2 * M_PI * 440.0 / c->sample_rate;
-    for (i = 0; i < 20000; i++) {
-        /* make sure the frame is writable -- makes a copy if the encoder
-         * kept a reference internally */
-        ret = av_frame_make_writable(frame);
-        if (ret < 0)
-            exit(1);
-        samples = (uint16_t *) frame->data[0];
-
-        for (j = 0; j < c->frame_size; j++) {
-            samples[2 * j] = 5000;
-
-            for (k = 1; k < c->channels; k++)
-                samples[2 * j + k] = samples[2 * j];
-            t += tincr;
+    while (!feof(in_file)) {
+        if (fread(frame_buf, 1, size, in_file) < 0) {
+            return 1;
         }
-        encode(c, frame, pkt, f);
+        frame->data[0] = frame_buf;
+        frame->pts = pts;
+        pts++;
+        int ret;
+        /* send the frame for encoding */
+        ret = avcodec_send_frame(c, frame);
+        if (ret < 0) {
+            fprintf(stderr, "Error sending the frame to the encoder\n");
+            exit(1);
+        }
+
+        /* read all the available output packets (in general there may be any
+         * number of them */
+        while (ret >= 0) {
+            ret = avcodec_receive_packet(c, pkt);
+            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+                break;
+            else if (ret < 0) {
+                fprintf(stderr, "Error encoding audio frame\n");
+                exit(1);
+            }
+            pkt->stream_index = av_stream->index;
+            av_write_frame(fmt_context, pkt);
+            av_packet_unref(pkt);
+        }
     }
-
-    /* flush the encoder */
-    encode(c, NULL, pkt, f);
-
+    av_write_trailer(fmt_context);
     fclose(f);
-
+    fclose(in_file);
     av_frame_free(&frame);
     av_packet_free(&pkt);
     avcodec_free_context(&c);
-
     return 0;
 }
