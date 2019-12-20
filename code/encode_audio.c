@@ -191,11 +191,11 @@ int main() {
     }
     while (!feof(in_file)) {
         if (fread(frame_buf, 1, size, in_file) < 0) {
-            return 1;
+            break;
         }
         frame->data[0] = frame_buf;
         frame->pts = pts;
-        pts++;
+        pts += frame->nb_samples;;
         int ret;
         /* send the frame for encoding */
         ret = avcodec_send_frame(c, frame);
@@ -219,6 +219,9 @@ int main() {
             av_packet_unref(pkt);
         }
     }
+    //Clean
+    av_free(frame_buf);
+    av_free(av_stream);
     av_write_trailer(fmt_context);
     fclose(f);
     fclose(in_file);
