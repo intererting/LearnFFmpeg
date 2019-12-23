@@ -195,7 +195,7 @@ int main() {
         }
         frame->data[0] = frame_buf;
         frame->pts = pts;
-        pts += frame->nb_samples;;
+        pts += frame->nb_samples;
         int ret;
         /* send the frame for encoding */
         ret = avcodec_send_frame(c, frame);
